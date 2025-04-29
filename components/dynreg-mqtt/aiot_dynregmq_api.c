@@ -10,6 +10,7 @@
 #include "core_string.h"
 #include "core_log.h"
 #include "core_auth.h"
+#include <stdio.h>
 
 
 static void _dynregmq_exec_inc(dynregmq_handle_t *dynregmq_handle)
@@ -441,10 +442,21 @@ int32_t aiot_dynregmq_send_request(void *handle)
                      sizeof(username_src) / sizeof(char *), DYNREGMQ_MODULE_NAME);
         core_sprintf(dynregmq_handle->sysdep, &sign_input, sign_input_fmt, client_src,
                      3, DYNREGMQ_MODULE_NAME);
+                     
+        /* 打印计算password前的明文 */
+        printf("【密码计算】原始明文: %s\n", sign_input);
+        printf("【密码计算】使用密钥: %s\n", dynregmq_handle->product_secret);
+        
         core_hmac_sha256((const uint8_t *)sign_input, (uint32_t)strlen(sign_input),
                          (const uint8_t *)dynregmq_handle->product_secret,
                          (uint32_t)strlen(dynregmq_handle->product_secret), sign_output);
         core_hex2str(sign_output, sizeof(sign_output), auth_password, 0);
+        
+        /* 打印动态注册阶段生成的认证信息 */
+        printf("【动态注册阶段】authtype: %s\n", auth_type);
+        printf("【动态注册阶段】clientid: %s\n", auth_clientid);
+        printf("【动态注册阶段】username: %s\n", auth_username);
+        printf("【动态注册阶段】password: %s\n", auth_password);
     }
 
     if (((res = aiot_mqtt_setopt(dynregmq_handle->mqtt_handle, AIOT_MQTTOPT_HOST,
