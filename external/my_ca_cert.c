@@ -26,6 +26,4 @@
 #endif
 
 /* 导出用户自定义证书，供其他文件使用 */
-const char *my_custom_cert = \
-    MY_CUSTOM_CERT \
-; 
+const char *my_custom_cert = MY_CUSTOM_CERT; 
