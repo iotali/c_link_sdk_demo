@@ -40,7 +40,7 @@ const char  *mqtt_host = "47.111.134.238";
 const uint16_t port = 8883;
 
 /* TODO: 如果要免预注册, 需要将该值设置为1;如果需要在控制台预先注册设备, 置为0 */
-uint8_t skip_pre_regist = 1;
+uint8_t skip_pre_regist = 0;
 
 /* 白名单模式下用于保存deviceSecret的结构体定义 */
 typedef struct {
@@ -219,6 +219,23 @@ int main(int argc, char *argv[])
     res = aiot_dynregmq_setopt(dynregmq_handle, AIOT_DYNREGMQOPT_NO_WHITELIST, (void *)&skip_pre_regist);
     if (res < STATE_SUCCESS) {
         printf("aiot_dynregmq_setopt AIOT_DYNREGMQOPT_NO_WHITELIST failed, res: -0x%04X\n", -res);
+        aiot_dynregmq_deinit(&dynregmq_handle);
+        return -1;
+    }
+
+    uint32_t reg_timeout_ms = 60000;  /* 整体注册超时时间设为60秒 */
+    uint32_t recv_timeout_ms = 30000; /* 网络接收超时设为30秒 */
+
+    res = aiot_dynregmq_setopt(dynregmq_handle, AIOT_DYNREGMQOPT_TIMEOUT_MS, (void *)&reg_timeout_ms);
+    if (res < STATE_SUCCESS) {
+        printf("aiot_dynregmq_setopt AIOT_DYNREGMQOPT_TIMEOUT_MS failed, res: -0x%04X\n", -res);
+        aiot_dynregmq_deinit(&dynregmq_handle);
+        return -1;
+    }
+
+    res = aiot_dynregmq_setopt(dynregmq_handle, AIOT_DYNREGMQOPT_RECV_TIMEOUT_MS, (void *)&recv_timeout_ms);
+    if (res < STATE_SUCCESS) {
+        printf("aiot_dynregmq_setopt AIOT_DYNREGMQOPT_RECV_TIMEOUT_MS failed, res: -0x%04X\n", -res);
         aiot_dynregmq_deinit(&dynregmq_handle);
         return -1;
     }
