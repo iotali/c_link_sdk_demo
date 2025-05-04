@@ -17,9 +17,9 @@
 #include "aiot_mqtt_api.h"
 
 /* TODO: 替换为自己设备的三元组 */
-const char *product_key       = "kdlxqvXX";
-const char *device_name       = "testcv002";
-const char *device_secret     = "7QNGAHH31ykxD9f6w39bRo54Hzx2H4eC";
+const char *product_key       = "iAAdekmy";
+const char *device_name       = "gBpWrBwUXd";
+const char *device_secret     = "DK2GoQwz8fcH7nXOm3rK0Cj76TOobxT5";
 
 /*
     TODO: 替换为自己实例的接入点
@@ -36,7 +36,7 @@ const char  *mqtt_host = "47.111.134.238";
     原端口：1883/443，对应的证书(GlobalSign R1),于2028年1月过期，届时可能会导致设备不能建连。
     (推荐)新端口：8883，将搭载新证书，由阿里云物联网平台自签证书，于2053年7月过期。
 */
-const uint16_t port = 8883;
+const uint16_t port = 18883;
 
 /* 位于portfiles/aiot_port文件夹下的系统适配函数集合 */
 extern aiot_sysdep_portfile_t g_aiot_sysdep_portfile;
@@ -45,7 +45,7 @@ extern aiot_sysdep_portfile_t g_aiot_sysdep_portfile;
 extern const char *ali_ca_cert;
 
 /* 位于external/my_ca_cert.c中的自定义证书 */
-extern const char *my_custom_cert;
+extern const char *new_custom_cert;
 
 static pthread_t g_mqtt_process_thread;
 static pthread_t g_mqtt_recv_thread;
@@ -226,8 +226,8 @@ int main(int argc, char *argv[])
     cred.option = AIOT_SYSDEP_NETWORK_CRED_SVRCERT_CA;  /* 使用RSA证书校验MQTT服务端 */
     cred.max_tls_fragment = 16384; /* 最大的分片长度为16K, 其它可选值还有4K, 2K, 1K, 0.5K */
     cred.sni_enabled = 1;                               /* TLS建连时, 支持Server Name Indicator */
-    cred.x509_server_cert = my_custom_cert;            /* 使用自定义证书替代原来的证书 */
-    cred.x509_server_cert_len = strlen(my_custom_cert); /* 自定义证书的长度 */
+    cred.x509_server_cert = new_custom_cert;            /* 使用自定义证书替代原来的证书 */
+    cred.x509_server_cert_len = strlen(new_custom_cert); /* 自定义证书的长度 */
 
     /* 创建1个MQTT客户端实例并内部初始化默认参数 */
     mqtt_handle = aiot_mqtt_init();

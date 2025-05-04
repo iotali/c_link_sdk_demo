@@ -19,9 +19,9 @@
 
 /* TODO: 替换为自己设备的三元组 */
 
-char *product_key       = "vqUiwQHo";
-char *device_name       = "dyreg001";
-char *product_secret    = "yjy8eumxpj0k";
+char *product_key       = "iAAdekmy";
+char *device_name       = "gBpWrBwUXd";
+char *product_secret    = "7GOiAgSMi20N6Mtk";
 
 typedef struct {
     uint32_t code;
@@ -80,8 +80,8 @@ int main(int argc, char *argv[])
 {
     int32_t     res = STATE_SUCCESS;
     void       *dynreg_handle = NULL;
-    char       *host = "121.40.253.224"; /* 阿里云平台动态注册国内站点 */
-    uint16_t    port = 10081;      /* 无论设备是否使用TLS连接阿里云平台, 目的端口都是443 */
+    char       *host = "iot.know-act.com"; /* 阿里云平台动态注册国内站点 */
+    uint16_t    port = 80;      /* 无论设备是否使用TLS连接阿里云平台, 目的端口都是443 */
     aiot_sysdep_network_cred_t cred; /* 安全凭据结构体, 如果要用TLS, 这个结构体中配置CA证书等参数 */
     demo_info_t demo_info;
 

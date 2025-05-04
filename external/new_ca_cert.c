@@ -1,6 +1,6 @@
 /* 用户自定义证书 */
-#ifndef MY_CUSTOM_CERT
-#define MY_CUSTOM_CERT \
+#ifndef NEW_CUSTOM_CERT
+#define NEW_CUSTOM_CERT \
     "-----BEGIN CERTIFICATE-----\r\n" \
     "MIIDjTCCAnWgAwIBAgIUCAs96kTOrkFlgY2NFaF4g7NocPYwDQYJKoZIhvcNAQEL\r\n" \
     "BQAwVTELMAkGA1UEBhMCQ04xCzAJBgNVBAgMAkpTMQswCQYDVQQHDAJOSjEQMA4G\r\n" \
@@ -26,4 +26,4 @@
 #endif
 
 /* 导出用户自定义证书，供其他文件使用 */
-const char *my_custom_cert = MY_CUSTOM_CERT; 
+const char *new_custom_cert = NEW_CUSTOM_CERT; 

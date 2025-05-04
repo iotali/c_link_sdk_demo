@@ -18,28 +18,21 @@
 
 
 /* TODO: 替换为自己设备的三元组 */
-const char *product_key       = "vqUiwQHo";
-const char *device_name       = "dyreg001";
-const char *product_secret    = "yjy8eumxpj0k";
+const char *product_key       = "iAAdekmy";
+const char *device_name       = "gBpWrBwUXd";
+const char *product_secret    = "7GOiAgSMi20N6Mtk";
 
 /*
     TODO: 替换为自己实例的接入点
 
-    对于企业实例, 或者2021年07月30日之后（含当日）开通的物联网平台服务下公共实例
-    mqtt_host的格式为"${YourInstanceId}.mqtt.iothub.aliyuncs.com"
-    其中${YourInstanceId}: 请替换为您企业/公共实例的Id
-
-    对于2021年07月30日之前（不含当日）开通的物联网平台服务下公共实例，请使用旧版接入点。
-    详情请见: https://help.aliyun.com/document_detail/147356.html
 */
 const char  *mqtt_host = "47.111.134.238";
 /* 
-    原端口：1883/443，对应的证书(GlobalSign R1),于2028年1月过期，届时可能会导致设备不能建连。
-    (推荐)新端口：8883，将搭载新证书，由阿里云IoT自签证书，于2053年7月过期。
+    (推荐)新端口：8883，将搭载自签名证书，由IoT自签证书，于2052年1月过期。
 */
-const uint16_t port = 8883;
+const uint16_t port = 18883;
 
-/* TODO: 如果要免预注册, 需要将该值设置为1;如果需要在控制台预先注册设备, 置为0 */
+/* 动态一机一密置为0 */
 uint8_t skip_pre_regist = 0;
 
 /* 白名单模式下用于保存deviceSecret的结构体定义 */
@@ -61,7 +54,7 @@ extern aiot_sysdep_portfile_t g_aiot_sysdep_portfile;
 extern const char *ali_ca_cert;
 
 /* 位于external/my_ca_cert.c中的自定义证书 */
-extern const char *my_custom_cert;
+extern const char *new_custom_cert;
 /* 用户保存白名单模式动态注册, 服务器返回的deviceSecret */
 static demo_devinfo_wl_t demo_devinfo_wl;
 
@@ -142,8 +135,8 @@ int main(int argc, char *argv[])
     cred.option = AIOT_SYSDEP_NETWORK_CRED_SVRCERT_CA;  /* 使用RSA证书校验DYNREGMQ服务端 */
     cred.max_tls_fragment = 16384; /* 最大的分片长度为16K, 其它可选值还有4K, 2K, 1K, 0.5K */
     cred.sni_enabled = 1;                               /* TLS建连时, 支持Server Name Indicator */
-    cred.x509_server_cert = my_custom_cert;                 /* 用来验证服务端的RSA根证书 */
-    cred.x509_server_cert_len = strlen(my_custom_cert);     /* 用来验证服务端的RSA根证书长度 */
+    cred.x509_server_cert = new_custom_cert;                 /* 用来验证服务端的RSA根证书 */
+    cred.x509_server_cert_len = strlen(new_custom_cert);     /* 用来验证服务端的RSA根证书长度 */
 
     /* 创建1个dynregmq客户端实例并内部初始化默认参数 */
     dynregmq_handle = aiot_dynregmq_init();
