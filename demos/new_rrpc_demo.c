@@ -17,9 +17,9 @@
 #include "aiot_mqtt_api.h"
 
 /* TODO: 替换为自己设备的三元组 */
-const char *product_key       = "QrjKUuXE";
-const char *device_name       = "5Csobg3zCO";
-const char *device_secret     = "KK79uP7AqQI27LgyvvcoPbZKTK4smcrB";
+const char *product_key       = "kdlxqvXX";
+const char *device_name       = "testcv002";
+const char *device_secret     = "7QNGAHH31ykxD9f6w39bRo54Hzx2H4eC";
 
 /*
     TODO: 替换为自己实例的接入点
@@ -31,7 +31,7 @@ const char *device_secret     = "KK79uP7AqQI27LgyvvcoPbZKTK4smcrB";
     对于2021年07月30日之前（不含当日）开通的物联网平台服务下公共实例，请使用旧版接入点。
     详情请见: https://help.aliyun.com/document_detail/147356.html
 */
-const char  *mqtt_host = "60.173.17.244";
+const char  *mqtt_host = "47.111.134.238";
 /* 
     原端口：1883/443，对应的证书(GlobalSign R1),于2028年1月过期，届时可能会导致设备不能建连。
     (推荐)新端口：8883，将搭载新证书，由阿里云物联网平台自签证书，于2053年7月过期。
@@ -43,20 +43,16 @@ extern aiot_sysdep_portfile_t g_aiot_sysdep_portfile;
 
 /* 位于external/ali_ca_cert.c中的服务器证书 */
 extern const char *ali_ca_cert;
-
 /* 位于external/my_ca_cert.c中的自定义证书 */
 extern const char *new_custom_cert;
-
 static pthread_t g_mqtt_process_thread;
 static pthread_t g_mqtt_recv_thread;
-static pthread_t g_mqtt_send_thread;
 static uint8_t g_mqtt_process_thread_running = 0;
 static uint8_t g_mqtt_recv_thread_running = 0;
-static uint8_t g_mqtt_send_thread_running = 0;
 
 /* TODO: 如果要关闭日志, 就把这个函数实现为空, 如果要减少日志, 可根据code选择不打印
  *
- * 例如: [1577589489.033][LK-0317] mqtt_basic_demo&gb80sFmX7yX
+ * 例如: [1577589489.033][LK-0317] {YourDeviceName}&{YourProductKey}
  *
  * 上面这条日志的code就是0317(十六进制), code值的定义见core/aiot_state_api.h
  *
@@ -102,6 +98,10 @@ void demo_mqtt_event_handler(void *handle, const aiot_mqtt_event_t *event, void 
     }
 }
 
+/* 处理RRPC请求的主题前缀 */
+const char *RRPC_REQUEST_PREFIX = "/sys/kdlxqvXX/testcv002/rrpc/request/";
+const int RRPC_PREFIX_LEN = 36; /* "/sys/kdlxqvXX/testcv002/rrpc/request/"的长度 */
+
 /* MQTT默认消息处理回调, 当SDK从服务器收到MQTT消息时, 且无对应用户回调处理时被调用 */
 void demo_mqtt_default_recv_handler(void *handle, const aiot_mqtt_recv_t *packet, void *userdata)
 {
@@ -122,7 +122,58 @@ void demo_mqtt_default_recv_handler(void *handle, const aiot_mqtt_recv_t *packet
         case AIOT_MQTTRECV_PUB: {
             printf("pub, qos: %d, topic: %.*s\n", packet->data.pub.qos, packet->data.pub.topic_len, packet->data.pub.topic);
             printf("pub, payload: %.*s\n", packet->data.pub.payload_len, packet->data.pub.payload);
-            /* TODO: 处理服务器下发的业务报文 */
+            
+            /* 处理RRPC请求，提取requestId并响应 */
+            if (packet->data.pub.topic_len > 0) {
+                /* 打印完整topic用于调试 */
+                char full_topic[128] = {0};
+                if (packet->data.pub.topic_len < sizeof(full_topic)) {
+                    memcpy(full_topic, packet->data.pub.topic, packet->data.pub.topic_len);
+                    printf("完整接收主题: %s\n", full_topic);
+                }
+                
+                if (packet->data.pub.topic_len > RRPC_PREFIX_LEN && 
+                    strncmp(packet->data.pub.topic, RRPC_REQUEST_PREFIX, RRPC_PREFIX_LEN) == 0) {
+                    printf("检测到RRPC请求\n");
+                    
+                    /* 提取requestId - 确保不包含前导斜杠 */
+                    char requestId[64] = {0};
+                    size_t requestId_len = packet->data.pub.topic_len - RRPC_PREFIX_LEN;
+                    
+                    /* 检查是否有前导斜杠，如果有则跳过 */
+                    const char *requestId_start = packet->data.pub.topic + RRPC_PREFIX_LEN;
+                    if (*requestId_start == '/') {
+                        requestId_start++;
+                        requestId_len--;
+                    }
+                    
+                    /* 复制正确的requestId */
+                    if (requestId_len > 0) {
+                        memcpy(requestId, requestId_start, requestId_len);
+                        requestId[requestId_len] = '\0';
+                    }
+                    
+                    printf("提取的requestId: %s\n", requestId);
+                    
+                    /* 构造响应topic - 使用固定格式 */
+                    char resp_topic[128] = {0};
+                    snprintf(resp_topic, sizeof(resp_topic), "/sys/kdlxqvXX/testcv002/rrpc/response/%s", requestId);
+                    
+                    printf("构造的响应主题: %s\n", resp_topic);
+                    
+                    /* 准备响应消息 */
+                    char *resp_payload = "{\"id\":\"1\",\"version\":\"1.0\",\"params\":{\"LightSwitch\":0}}";
+                    
+                    /* 发送响应 */
+                    int32_t res = aiot_mqtt_pub(handle, resp_topic, (uint8_t *)resp_payload, 
+                                              (uint32_t)strlen(resp_payload), 0);
+                    if (res < 0) {
+                        printf("RRPC响应失败, res: -0x%04X\n", -res);
+                    } else {
+                        printf("RRPC响应已发送到主题: %s\n", resp_topic);
+                    }
+                }
+            }
         }
         break;
 
@@ -136,17 +187,6 @@ void demo_mqtt_default_recv_handler(void *handle, const aiot_mqtt_recv_t *packet
 
         }
     }
-}
-
-/* 将十六进制字符串转换为二进制数据 */
-int hex_to_binary(const char *hex_str, uint8_t *binary, int max_len) {
-    int len = 0;
-    while (*hex_str && len < max_len) {
-        sscanf(hex_str, "%2hhx", &binary[len]);
-        len++;
-        hex_str += 2;
-    }
-    return len;
 }
 
 /* 执行aiot_mqtt_process的线程, 包含心跳发送和QoS1消息重发 */
@@ -181,35 +221,12 @@ void *demo_mqtt_recv_thread(void *args)
     return NULL;
 }
 
-/* 执行定时发送消息的线程 */
-void *demo_mqtt_send_thread(void *args)
-{
-    int32_t res = STATE_SUCCESS;
-    char topic[128] = {0};
-    const char *message = "hello world";
-    
-    /* 构建发送的主题 */
-    snprintf(topic, sizeof(topic), "/%s/%s/user/update", product_key, device_name);
-    
-    while (g_mqtt_send_thread_running) {
-        res = aiot_mqtt_pub(args, topic, (uint8_t *)message, strlen(message), 0);
-        if (res < 0) {
-            printf("aiot_mqtt_pub failed, res: -0x%04X\n", -res);
-        } else {
-            printf("定时消息已发送到 %s\n", topic);
-        }
-        
-        /* 休眠5秒 */
-        sleep(5);
-    }
-    return NULL;
-}
-
 int main(int argc, char *argv[])
 {
     int32_t     res = STATE_SUCCESS;
     void       *mqtt_handle = NULL;
     aiot_sysdep_network_cred_t cred; /* 安全凭据结构体, 如果要用TLS, 这个结构体中配置CA证书等参数 */
+
 
     /* 配置SDK的底层依赖 */
     aiot_sysdep_set_portfile(&g_aiot_sysdep_portfile);
@@ -224,6 +241,7 @@ int main(int argc, char *argv[])
     cred.x509_server_cert = new_custom_cert;            /* 使用自定义证书替代原来的证书 */
     cred.x509_server_cert_len = strlen(new_custom_cert); /* 自定义证书的长度 */
 
+
     /* 创建1个MQTT客户端实例并内部初始化默认参数 */
     mqtt_handle = aiot_mqtt_init();
     if (mqtt_handle == NULL) {
@@ -233,7 +251,6 @@ int main(int argc, char *argv[])
 
     /* TODO: 如果以下代码不被注释, 则例程会用TCP而不是TLS连接云平台 */
     /*
-    
     {
         memset(&cred, 0, sizeof(aiot_sysdep_network_cred_t));
         cred.option = AIOT_SYSDEP_NETWORK_CRED_NONE;
@@ -268,27 +285,32 @@ int main(int argc, char *argv[])
     }
 
     /* MQTT 订阅topic功能示例, 请根据自己的业务需求进行使用 */
-    /* {
-        char *sub_topic = "/sys/${YourProductKey}/${YourDeviceName}/thing/event/+/post_reply";
+    {
+        char *sub_topic = "/sys/kdlxqvXX/testcv002/rrpc/request/+";
+        printf("Subscribing to topic: %s\n", sub_topic);
 
         res = aiot_mqtt_sub(mqtt_handle, sub_topic, NULL, 1, NULL);
         if (res < 0) {
             printf("aiot_mqtt_sub failed, res: -0x%04X\n", -res);
             return -1;
         }
-    } */
+        printf("Subscription successful\n");
+    }
 
     /* MQTT 发布消息功能示例, 请根据自己的业务需求进行使用 */
-    /* {
-        char *pub_topic = "/sys/${YourProductKey}/${YourDeviceName}/thing/event/property/post";
+    {
+        /* 注释掉这部分代码，因为我们在接收到RRPC请求后再发送响应 */
+        /*
+        char *pub_topic = "/sys/kdlxqvXX/testcv002/rrpc/response/";
         char *pub_payload = "{\"id\":\"1\",\"version\":\"1.0\",\"params\":{\"LightSwitch\":0}}";
 
         res = aiot_mqtt_pub(mqtt_handle, pub_topic, (uint8_t *)pub_payload, (uint32_t)strlen(pub_payload), 0);
         if (res < 0) {
-            printf("aiot_mqtt_sub failed, res: -0x%04X\n", -res);
+            printf("aiot_mqtt_pub failed, res: -0x%04X\n", -res);
             return -1;
         }
-    } */
+        */
+    }
 
     /* 创建一个单独的线程, 专用于执行aiot_mqtt_process, 它会自动发送心跳保活, 以及重发QoS1的未应答报文 */
     g_mqtt_process_thread_running = 1;
@@ -306,14 +328,6 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /* 创建一个单独的线程, 用于定时发送消息 */
-    g_mqtt_send_thread_running = 1;
-    res = pthread_create(&g_mqtt_send_thread, NULL, demo_mqtt_send_thread, mqtt_handle);
-    if (res < 0) {
-        printf("pthread_create demo_mqtt_send_thread failed: %d\n", res);
-        return -1;
-    }
-
     /* 主循环进入休眠 */
     while (1) {
         sleep(1);
@@ -322,11 +336,9 @@ int main(int argc, char *argv[])
     /* 断开MQTT连接, 一般不会运行到这里 */
     g_mqtt_process_thread_running = 0;
     g_mqtt_recv_thread_running = 0;
-    g_mqtt_send_thread_running = 0;
     sleep(1);
     pthread_join(g_mqtt_process_thread, NULL);
     pthread_join(g_mqtt_recv_thread, NULL);
-    pthread_join(g_mqtt_send_thread, NULL);
 
     res = aiot_mqtt_disconnect(mqtt_handle);
     if (res < STATE_SUCCESS) {
