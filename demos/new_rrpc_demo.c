@@ -17,9 +17,9 @@
 #include "aiot_mqtt_api.h"
 
 /* TODO: 替换为自己设备的三元组 */
-const char *product_key       = "kdlxqvXX";
-const char *device_name       = "testcv002";
-const char *device_secret     = "7QNGAHH31ykxD9f6w39bRo54Hzx2H4eC";
+const char *product_key       = "QrjKUuXE";
+const char *device_name       = "32test";
+const char *device_secret     = "QWt56sOjrbuoCON3";
 
 /*
     TODO: 替换为自己实例的接入点
@@ -31,7 +31,7 @@ const char *device_secret     = "7QNGAHH31ykxD9f6w39bRo54Hzx2H4eC";
     对于2021年07月30日之前（不含当日）开通的物联网平台服务下公共实例，请使用旧版接入点。
     详情请见: https://help.aliyun.com/document_detail/147356.html
 */
-const char  *mqtt_host = "47.111.134.238";
+const char  *mqtt_host = "60.173.17.244";
 /* 
     原端口：1883/443，对应的证书(GlobalSign R1),于2028年1月过期，届时可能会导致设备不能建连。
     (推荐)新端口：8883，将搭载新证书，由阿里云物联网平台自签证书，于2053年7月过期。
@@ -98,9 +98,9 @@ void demo_mqtt_event_handler(void *handle, const aiot_mqtt_event_t *event, void 
     }
 }
 
-/* 处理RRPC请求的主题前缀 */
-const char *RRPC_REQUEST_PREFIX = "/sys/kdlxqvXX/testcv002/rrpc/request/";
-const int RRPC_PREFIX_LEN = 36; /* "/sys/kdlxqvXX/testcv002/rrpc/request/"的长度 */
+/* 处理RRPC请求的主题前缀，使用product_key和device_name动态构建 */
+char RRPC_REQUEST_PREFIX[100];
+int RRPC_PREFIX_LEN = 0; /* 将在运行时计算 */
 
 /* MQTT默认消息处理回调, 当SDK从服务器收到MQTT消息时, 且无对应用户回调处理时被调用 */
 void demo_mqtt_default_recv_handler(void *handle, const aiot_mqtt_recv_t *packet, void *userdata)
@@ -155,9 +155,9 @@ void demo_mqtt_default_recv_handler(void *handle, const aiot_mqtt_recv_t *packet
                     
                     printf("提取的requestId: %s\n", requestId);
                     
-                    /* 构造响应topic - 使用固定格式 */
+                    /* 构造响应topic - 使用三元组动态构建 */
                     char resp_topic[128] = {0};
-                    snprintf(resp_topic, sizeof(resp_topic), "/sys/kdlxqvXX/testcv002/rrpc/response/%s", requestId);
+                    snprintf(resp_topic, sizeof(resp_topic), "/sys/%s/%s/rrpc/response/%s", product_key, device_name, requestId);
                     
                     printf("构造的响应主题: %s\n", resp_topic);
                     
@@ -227,6 +227,9 @@ int main(int argc, char *argv[])
     void       *mqtt_handle = NULL;
     aiot_sysdep_network_cred_t cred; /* 安全凭据结构体, 如果要用TLS, 这个结构体中配置CA证书等参数 */
 
+    /* 初始化RRPC请求前缀 */
+    snprintf(RRPC_REQUEST_PREFIX, sizeof(RRPC_REQUEST_PREFIX), "/sys/%s/%s/rrpc/request/", product_key, device_name);
+    RRPC_PREFIX_LEN = strlen(RRPC_REQUEST_PREFIX);
 
     /* 配置SDK的底层依赖 */
     aiot_sysdep_set_portfile(&g_aiot_sysdep_portfile);
@@ -286,7 +289,8 @@ int main(int argc, char *argv[])
 
     /* MQTT 订阅topic功能示例, 请根据自己的业务需求进行使用 */
     {
-        char *sub_topic = "/sys/kdlxqvXX/testcv002/rrpc/request/+";
+        char sub_topic[128];
+        snprintf(sub_topic, sizeof(sub_topic), "/sys/%s/%s/rrpc/request/+", product_key, device_name);
         printf("Subscribing to topic: %s\n", sub_topic);
 
         res = aiot_mqtt_sub(mqtt_handle, sub_topic, NULL, 1, NULL);
