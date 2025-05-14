@@ -17,10 +17,9 @@
 #include "aiot_mqtt_api.h"
 
 /* TODO: 替换为自己设备的三元组 */
-const char *product_key       = "NrateJMx";
-const char *device_name       = "RJeDKWZauj";
-const char *device_secret     = "7GSYDL9Tg9FBLOmzynN12ZYvsW*****";
-
+const char *product_key       = "EkkpqOZe";
+const char *device_name       = "ctest001";
+const char *device_secret     = "MwJqVSXG380****";
 /*
     TODO: 替换为自己实例的接入点
 
@@ -33,7 +32,7 @@ const char *device_secret     = "7GSYDL9Tg9FBLOmzynN12ZYvsW*****";
 */
 const char  *mqtt_host = "xxx.xxx.xxx.xxx";
 /* 
-    原端口：1883/443，对应的证书(GlobalSign R1),于2028年1月过期，届时可能会导致设备不能建连。
+    原端口：1883/443，对应的证书(GlobalSign R1),于2028年1过期，届时可能会导致设备不能建连。
     (推荐)新端口：8883，将搭载新证书，由阿里云物联网平台自签证书，于2053年7月过期。
 */
 const uint16_t port = 8883;
@@ -186,19 +185,21 @@ void *demo_mqtt_send_thread(void *args)
 {
     int32_t res = STATE_SUCCESS;
     char topic[128] = {0};
-    
-    /* Modbus指令: 01 03 00 00 00 01 84 0A */
-    uint8_t modbus_cmd[] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x01, 0x84, 0x0A};
+
+    /* Modbus 二进制数据: 01 03 00 00 00 01 84 0A */
+    uint8_t modbus_message[] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x01, 0x84, 0x0A};
+    uint32_t message_len = sizeof(modbus_message);
     
     /* 构建发送的主题 */
     snprintf(topic, sizeof(topic), "/%s/%s/user/update", product_key, device_name);
     
     while (g_mqtt_send_thread_running) {
-        res = aiot_mqtt_pub(args, topic, modbus_cmd, sizeof(modbus_cmd), 0);
+
+        res = aiot_mqtt_pub(args, topic, modbus_message, message_len, 0);
         if (res < 0) {
             printf("aiot_mqtt_pub failed, res: -0x%04X\n", -res);
         } else {
-            printf("Modbus指令已发送到 %s\n", topic);
+            printf("二进制Modbus消息已发送到 %s\n", topic);
         }
         
         /* 休眠5秒 */

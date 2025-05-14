@@ -17,9 +17,9 @@
 #include "aiot_mqtt_api.h"
 
 /* TODO: 替换为自己设备的三元组 */
-const char *product_key       = "QrjKUuXE";
-const char *device_name       = "5Csobg3zCO";
-const char *device_secret     = "KK79uP7AqQI27LgyvvcoPbZKTK4smcrB";
+const char *product_key       = "EkkpqOZe";
+const char *device_name       = "ctest001";
+const char *device_secret     = "MwJqVSXG38***";
 
 /*
     TODO: 替换为自己实例的接入点
@@ -186,7 +186,7 @@ void *demo_mqtt_send_thread(void *args)
 {
     int32_t res = STATE_SUCCESS;
     char topic[128] = {0};
-    const char *message = "hello world";
+    const char *message = "{CN,OwZbOxPZxS,866940076295997,TP975H3_S20_WS_V250506_1,31,89861124201047889211,9531,112039684,ctnet.MNC011.MCC460.GPRS,8a7f}";
     
     /* 构建发送的主题 */
     snprintf(topic, sizeof(topic), "/%s/%s/user/update", product_key, device_name);
