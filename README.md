@@ -67,6 +67,18 @@ cred.x509_server_cert_len = strlen(new_custom_cert);
 - 提取请求 ID
 - 构造并发送 RRPC 响应
 
+### 物模型相关调用
+
+`data_model_basic_demo.c` 演示了物模型相关功能：
+
+```c
+/* 上报单个属性*/
+demo_send_property_post(dm_handle, "{\"temperature\": 25}");
+
+/* 上报多个属性*/
+demo_send_property_post(dm_handle, "{\"humidity\": 60, \"pm25\": 12}");
+```
+
 ## 开发注意事项
 
 1. **三元组安全**：设备三元组是设备身份凭证，请妥善保管
@@ -79,4 +91,4 @@ cred.x509_server_cert_len = strlen(new_custom_cert);
 - 基于成熟的阿里云 LinkSDK，具有稳定可靠的特性
 - 通过简单修改即可对接新 IoT 平台，迁移成本低
 - 支持多种设备认证方式，适应不同安全需求
-- 完整实现 MQTT 协议功能，支持复杂业务场景 
+- 完整实现 MQTT 协议功能，支持复杂业务场景
