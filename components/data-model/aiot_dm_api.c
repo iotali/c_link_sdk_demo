@@ -24,7 +24,7 @@ static int32_t _dm_send_property_batch_post(dm_handle_t *handle, const char *top
 static void _dm_recv_generic_reply_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata);
 static void _dm_recv_property_set_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata);
 static void _dm_recv_async_service_invoke_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata);
-static void _dm_recv_sync_service_invoke_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata);
+// static void _dm_recv_sync_service_invoke_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata);
 static void _dm_recv_raw_data_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata);
 static void _dm_recv_raw_sync_service_invoke_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata);
 static void _dm_recv_up_raw_reply_data_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata);
@@ -42,15 +42,17 @@ static const dm_send_topic_map_t g_dm_send_topic_mapping[AIOT_DMMSG_MAX] = {
     },
     {
         // "/sys/%s/%s/thing/service/property/set_reply",
-        "$SYS/%s/%s/property/post/reply",
+        "$SYS/%s/%s/property/set/reply",
         _dm_send_property_set_reply
     },
     {
-        "/sys/%s/%s/thing/service/%s_reply",
+        // "/sys/%s/%s/thing/service/%s_reply",
+        "$SYS/%s/%s/service/+/invoke/reply",
         _dm_send_async_service_reply
     },
     {
-        "/ext/rrpc/%s/sys/%s/%s/thing/service/%s",
+        // "/ext/rrpc/%s/sys/%s/%s/thing/service/%s",
+        "$SYS/%s/%s/service/+/invoke/reply",
         _dm_send_sync_service_reply
     },
     {
@@ -77,21 +79,21 @@ static const dm_send_topic_map_t g_dm_send_topic_mapping[AIOT_DMMSG_MAX] = {
 
 static const dm_recv_topic_map_t g_dm_recv_topic_mapping[] = {
     {
-        "/sys/+/+/thing/event/+/post_reply",
+        "$SYS/%s/%s/event/post/reply",
         _dm_recv_generic_reply_handler,
     },
     {
-        "/sys/+/+/thing/service/property/set",
+        "$SYS/%s/%s/property/set",
         _dm_recv_property_set_handler,
     },
     {
-        "/sys/+/+/thing/service/+",
+        "$SYS/%s/%s/service/+/invoke",
         _dm_recv_async_service_invoke_handler,
     },
-    {
-        "/ext/rrpc/+/sys/+/+/thing/service/+",
-        _dm_recv_sync_service_invoke_handler,
-    },
+    // {
+    //     "$SYS/%s/%s/service/+/invoke",
+    //     _dm_recv_sync_service_invoke_handler,
+    // },
     {
         "/sys/+/+/thing/model/down_raw",
         _dm_recv_raw_data_handler,
@@ -134,14 +136,23 @@ static int32_t _dm_setup_topic_mapping(void *mqtt_handle, void *dm_handle)
 {
     uint32_t i = 0;
     int32_t res = STATE_SUCCESS;
+    char *pk = core_mqtt_get_product_key(mqtt_handle);
+    char *dn = core_mqtt_get_device_name(mqtt_handle);
 
     for (i = 0; i < sizeof(g_dm_recv_topic_mapping) / sizeof(dm_recv_topic_map_t); i++) {
         aiot_mqtt_topic_map_t topic_mapping;
-        topic_mapping.topic = g_dm_recv_topic_mapping[i].topic;
+        char topic_buf[256];
+          // 判断是否需要替换
+        if (strstr(g_dm_recv_topic_mapping[i].topic, "%s") != NULL && pk && dn) {
+            snprintf(topic_buf, sizeof(topic_buf), g_dm_recv_topic_mapping[i].topic, pk, dn);
+            topic_mapping.topic = topic_buf;
+        } else {
+            topic_mapping.topic = g_dm_recv_topic_mapping[i].topic;
+        }
         topic_mapping.handler = g_dm_recv_topic_mapping[i].func;
         topic_mapping.userdata = dm_handle;
 
-        res = aiot_mqtt_setopt(mqtt_handle, AIOT_MQTTOPT_APPEND_TOPIC_MAP, &topic_mapping);
+        res = aiot_mqtt_setopt(mqtt_handle, AIOT_MQTTOPT_APPEND_TOPIC_MAP, (void *)&topic_mapping);
         if (res < 0) {
             break;
         }
@@ -155,6 +166,7 @@ static int32_t _dm_prepare_send_topic(dm_handle_t *dm_handle, const aiot_dm_msg_
     uint8_t src_count = 0;
     char *pk = NULL;
     char *dn = NULL;
+    char topic_fmt[256];
 
     if (NULL == msg->product_key && NULL == core_mqtt_get_product_key(dm_handle->mqtt_handle)) {
         return STATE_USER_INPUT_MISSING_PRODUCT_KEY;
@@ -165,7 +177,10 @@ static int32_t _dm_prepare_send_topic(dm_handle_t *dm_handle, const aiot_dm_msg_
 
     pk = (msg->product_key != NULL) ? msg->product_key : core_mqtt_get_product_key(dm_handle->mqtt_handle);
     dn = (msg->device_name != NULL) ? msg->device_name : core_mqtt_get_device_name(dm_handle->mqtt_handle);
-
+    // 先赋默认值
+    strncpy(topic_fmt, g_dm_send_topic_mapping[msg->type].topic, sizeof(topic_fmt) - 1);
+    topic_fmt[sizeof(topic_fmt) - 1] = '\0';
+    
     switch (msg->type) {
         case AIOT_DMMSG_PROPERTY_POST:
         case AIOT_DMMSG_PROPERTY_BATCH_POST:
@@ -191,6 +206,23 @@ static int32_t _dm_prepare_send_topic(dm_handle_t *dm_handle, const aiot_dm_msg_
         case AIOT_DMMSG_ASYNC_SERVICE_REPLY: {
             if (msg->data.async_service_reply.service_id == NULL) {
                 return STATE_DM_SERVICE_ID_IS_NULL;
+            }
+            // 只在此case下将+替换为%s
+            {
+                char tmp_fmt[256];
+                size_t j = 0, k = 0;
+                while (topic_fmt[j] != '\0' && k < sizeof(tmp_fmt) - 1) {
+                    if (topic_fmt[j] == '+' && (k < sizeof(tmp_fmt) - 3)) {
+                        tmp_fmt[k++] = '%';
+                        tmp_fmt[k++] = 's';
+                        j++;
+                    } else {
+                        tmp_fmt[k++] = topic_fmt[j++];
+                    }
+                }
+                tmp_fmt[k] = '\0';
+                strncpy(topic_fmt, tmp_fmt, sizeof(topic_fmt) - 1);
+                topic_fmt[sizeof(topic_fmt) - 1] = '\0';
             }
             src[0] = pk;
             src[1] = dn;
@@ -226,7 +258,7 @@ static int32_t _dm_prepare_send_topic(dm_handle_t *dm_handle, const aiot_dm_msg_
             return STATE_USER_INPUT_OUT_RANGE;
     }
 
-    return core_sprintf(dm_handle->sysdep, topic, g_dm_send_topic_mapping[msg->type].topic, src, src_count,
+    return core_sprintf(dm_handle->sysdep, topic, topic_fmt, src, src_count,
                         DATA_MODEL_MODULE_NAME);
 }
 
@@ -531,9 +563,9 @@ static void _dm_recv_async_service_invoke_handler(void *handle, const aiot_mqtt_
     core_log(dm_handle->sysdep, STATE_DM_LOG_RECV, "DM recv async service invoke\r\n");
 
     do {
-        if (_dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 2, &recv.product_key) < 0 ||
-            _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 3, &recv.device_name) < 0 ||
-            _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 6,
+        if (_dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 1, &recv.product_key) < 0 ||
+            _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 2, &recv.device_name) < 0 ||
+            _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 4,
                                 &recv.data.async_service_invoke.service_id) < 0) {
             break;
         }
@@ -542,7 +574,7 @@ static void _dm_recv_async_service_invoke_handler(void *handle, const aiot_mqtt_
                                            &recv.data.async_service_invoke.params,
                                            &recv.data.async_service_invoke.params_len)) < 0) {
 
-            /* core_log(dm_handle->sysdep, SATAE_DM_LOG_PARSE_RECV_MSG_FAILED, "DM parse async servicey failed\r\n"); */
+                                            /* core_log(dm_handle->sysdep, SATAE_DM_LOG_PARSE_RECV_MSG_FAILED, "DM parse async servicey failed\r\n"); */
             break;
         }
 
@@ -554,46 +586,46 @@ static void _dm_recv_async_service_invoke_handler(void *handle, const aiot_mqtt_
     DM_FREE(recv.data.async_service_invoke.service_id);
 }
 
-static void _dm_recv_sync_service_invoke_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata)
-{
-    dm_handle_t *dm_handle = (dm_handle_t *)userdata;
-    aiot_dm_recv_t recv;
+// static void _dm_recv_sync_service_invoke_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata)
+// {
+//     dm_handle_t *dm_handle = (dm_handle_t *)userdata;
+//     aiot_dm_recv_t recv;
 
-    if (NULL == dm_handle->recv_handler) {
-        return;
-    }
+//     if (NULL == dm_handle->recv_handler) {
+//         return;
+//     }
 
-    memset(&recv, 0, sizeof(aiot_dm_recv_t));
-    recv.type = AIOT_DMRECV_SYNC_SERVICE_INVOKE;
+//     memset(&recv, 0, sizeof(aiot_dm_recv_t));
+//     recv.type = AIOT_DMRECV_SYNC_SERVICE_INVOKE;
 
-    core_log(dm_handle->sysdep, STATE_DM_LOG_RECV, "DM recv sync service invoke\r\n");
+//     core_log(dm_handle->sysdep, STATE_DM_LOG_RECV, "DM recv sync service invoke\r\n");
 
-    do {
-        if (_dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 5, &recv.product_key) < 0 ||
-            _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 6, &recv.device_name) < 0 ||
-            _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 3,
-                                &recv.data.sync_service_invoke.rrpc_id) < 0 ||
-            _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 9,
-                                &recv.data.sync_service_invoke.service_id) < 0) {
-            break;
-        }
-        if ((_dm_parse_alink_request((char *)msg->data.pub.payload, msg->data.pub.payload_len,
-                                           &recv.data.sync_service_invoke.msg_id,
-                                           &recv.data.sync_service_invoke.params,
-                                           &recv.data.sync_service_invoke.params_len)) < 0) {
+//     do {
+//         if (_dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 5, &recv.product_key) < 0 ||
+//             _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 6, &recv.device_name) < 0 ||
+//             _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 3,
+//                                 &recv.data.sync_service_invoke.rrpc_id) < 0 ||
+//             _dm_get_topic_level(dm_handle->sysdep, msg->data.pub.topic, msg->data.pub.topic_len, 9,
+//                                 &recv.data.sync_service_invoke.service_id) < 0) {
+//             break;
+//         }
+//         if ((_dm_parse_alink_request((char *)msg->data.pub.payload, msg->data.pub.payload_len,
+//                                            &recv.data.sync_service_invoke.msg_id,
+//                                            &recv.data.sync_service_invoke.params,
+//                                            &recv.data.sync_service_invoke.params_len)) < 0) {
 
-            core_log(dm_handle->sysdep, SATAE_DM_LOG_PARSE_RECV_MSG_FAILED, "DM parse sync service failed\r\n");
-            break;
-        }
+//             core_log(dm_handle->sysdep, SATAE_DM_LOG_PARSE_RECV_MSG_FAILED, "DM parse sync service failed\r\n");
+//             break;
+//         }
 
-        dm_handle->recv_handler(dm_handle, &recv, dm_handle->userdata);
-    } while (0);
+//         dm_handle->recv_handler(dm_handle, &recv, dm_handle->userdata);
+//     } while (0);
 
-    DM_FREE(recv.data.sync_service_invoke.rrpc_id);
-    DM_FREE(recv.product_key);
-    DM_FREE(recv.device_name);
-    DM_FREE(recv.data.sync_service_invoke.service_id);
-}
+//     DM_FREE(recv.data.sync_service_invoke.rrpc_id);
+//     DM_FREE(recv.product_key);
+//     DM_FREE(recv.device_name);
+//     DM_FREE(recv.data.sync_service_invoke.service_id);
+// }
 
 static void _dm_recv_raw_data_handler(void *handle, const aiot_mqtt_recv_t *msg, void *userdata)
 {
@@ -749,7 +781,6 @@ int32_t aiot_dm_setopt(void *handle, aiot_dm_option_t option, void *data)
     }
 
     dm_handle = (dm_handle_t *)handle;
-
     switch (option) {
         case AIOT_DMOPT_MQTT_HANDLE: {
             dm_handle->mqtt_handle = data;

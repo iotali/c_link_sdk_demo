@@ -247,8 +247,8 @@ static int32_t _core_mqtt_topic_is_valid(core_mqtt_handle_t *mqtt_handle, char *
 {
     uint32_t idx = 0;
 
-    if (mqtt_handle->topic_header_check && topic[0] != '/') {
-        return STATE_MQTT_TOPIC_INVALID;
+    if (mqtt_handle->topic_header_check && (topic[0] != '/' && topic[0] != '$')) {
+    return STATE_MQTT_TOPIC_INVALID;
     }
 
     for (idx = 1; idx < len; idx++) {
@@ -275,7 +275,6 @@ static int32_t _core_mqtt_append_topic_map(core_mqtt_handle_t *mqtt_handle, aiot
 {
     int32_t             res = STATE_SUCCESS;
     core_mqtt_buff_t    topic_buff;
-
     if (map->topic == NULL) {
         return STATE_USER_INPUT_NULL_POINTER;
     }

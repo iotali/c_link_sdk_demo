@@ -142,6 +142,19 @@ static void demo_dm_recv_generic_reply(void *dm_handle, const aiot_dm_recv_t *re
            recv->data.generic_reply.message);
 }
 
+/* 属性上报函数演示 */
+int32_t demo_send_property_post(void *dm_handle, char *params)
+{
+    aiot_dm_msg_t msg;
+
+    memset(&msg, 0, sizeof(aiot_dm_msg_t));
+    msg.type = AIOT_DMMSG_PROPERTY_POST;
+    msg.data.property_post.params = params;
+
+    return aiot_dm_send(dm_handle, &msg);
+}
+
+
 static void demo_dm_recv_property_set(void *dm_handle, const aiot_dm_recv_t *recv, void *userdata)
 {
     printf("demo_dm_recv_property_set msg_id = %ld, params = %.*s\r\n",
@@ -149,8 +162,12 @@ static void demo_dm_recv_property_set(void *dm_handle, const aiot_dm_recv_t *rec
            recv->data.property_set.params_len,
            recv->data.property_set.params);
 
+    char params_buf[256];
+    int len = recv->data.property_set.params_len;
+    if (len >= sizeof(params_buf)) len = sizeof(params_buf) - 1;
+    memcpy(params_buf, recv->data.property_set.params, len);
+    params_buf[len] = '\0';
     /* TODO: 以下代码演示如何对来自云平台的属性设置指令进行应答, 用户可取消注释查看演示效果 */
-    /*
     {
         aiot_dm_msg_t msg;
 
@@ -158,13 +175,15 @@ static void demo_dm_recv_property_set(void *dm_handle, const aiot_dm_recv_t *rec
         msg.type = AIOT_DMMSG_PROPERTY_SET_REPLY;
         msg.data.property_set_reply.msg_id = recv->data.property_set.msg_id;
         msg.data.property_set_reply.code = 200;
-        msg.data.property_set_reply.data = "{}";
+        msg.data.property_set_reply.data = params_buf;
         int32_t res = aiot_dm_send(dm_handle, &msg);
         if (res < 0) {
             printf("aiot_dm_send failed\r\n");
         }
     }
-    */
+
+    /* 模拟属性上报 接收到设置的值上报 */
+    // demo_send_property_post(dm_handle, params_buf);
 }
 
 static void demo_dm_recv_async_service_invoke(void *dm_handle, const aiot_dm_recv_t *recv, void *userdata)
@@ -175,12 +194,18 @@ static void demo_dm_recv_async_service_invoke(void *dm_handle, const aiot_dm_rec
            recv->data.async_service_invoke.params_len,
            recv->data.async_service_invoke.params);
 
+
+    char params_buf[256];
+    int len = recv->data.async_service_invoke.params_len;
+    if (len >= sizeof(params_buf)) len = sizeof(params_buf) - 1;
+    memcpy(params_buf, recv->data.async_service_invoke.params, len);
+    params_buf[len] = '\0';
+
     /* TODO: 以下代码演示如何对来自云平台的异步服务调用进行应答, 用户可取消注释查看演示效果
         *
         * 注意: 如果用户在回调函数外进行应答, 需要自行保存msg_id, 因为回调函数入参在退出回调函数后将被SDK销毁, 不可以再访问到
         */
 
-    /*
     {
         aiot_dm_msg_t msg;
 
@@ -188,14 +213,13 @@ static void demo_dm_recv_async_service_invoke(void *dm_handle, const aiot_dm_rec
         msg.type = AIOT_DMMSG_ASYNC_SERVICE_REPLY;
         msg.data.async_service_reply.msg_id = recv->data.async_service_invoke.msg_id;
         msg.data.async_service_reply.code = 200;
-        msg.data.async_service_reply.service_id = "ToggleLightSwitch";
-        msg.data.async_service_reply.data = "{\"dataA\": 20}";
+        msg.data.async_service_reply.service_id = recv->data.async_service_invoke.service_id;
+        msg.data.async_service_reply.data = params_buf;
         int32_t res = aiot_dm_send(dm_handle, &msg);
         if (res < 0) {
             printf("aiot_dm_send failed\r\n");
         }
     }
-    */
 }
 
 static void demo_dm_recv_sync_service_invoke(void *dm_handle, const aiot_dm_recv_t *recv, void *userdata)
@@ -212,7 +236,6 @@ static void demo_dm_recv_sync_service_invoke(void *dm_handle, const aiot_dm_recv
         * 注意: 如果用户在回调函数外进行应答, 需要自行保存msg_id和rrpc_id字符串, 因为回调函数入参在退出回调函数后将被SDK销毁, 不可以再访问到
         */
 
-    /*
     {
         aiot_dm_msg_t msg;
 
@@ -228,7 +251,6 @@ static void demo_dm_recv_sync_service_invoke(void *dm_handle, const aiot_dm_recv
             printf("aiot_dm_send failed\r\n");
         }
     }
-    */
 }
 
 static void demo_dm_recv_raw_data(void *dm_handle, const aiot_dm_recv_t *recv, void *userdata)
@@ -316,18 +338,6 @@ static void demo_dm_recv_handler(void *dm_handle, const aiot_dm_recv_t *recv, vo
     }
 }
 
-/* 属性上报函数演示 */
-int32_t demo_send_property_post(void *dm_handle, char *params)
-{
-    aiot_dm_msg_t msg;
-
-    memset(&msg, 0, sizeof(aiot_dm_msg_t));
-    msg.type = AIOT_DMMSG_PROPERTY_POST;
-    msg.data.property_post.params = params;
-
-    return aiot_dm_send(dm_handle, &msg);
-}
-
 int32_t demo_send_property_batch_post(void *dm_handle, char *params)
 {
     aiot_dm_msg_t msg;
@@ -396,8 +406,8 @@ int main(int argc, char *argv[])
     cred.option = AIOT_SYSDEP_NETWORK_CRED_SVRCERT_CA;  /* 使用RSA证书校验MQTT服务端 */
     cred.max_tls_fragment = 16384; /* 最大的分片长度为16K, 其它可选值还有4K, 2K, 1K, 0.5K */
     cred.sni_enabled = 1;                               /* TLS建连时, 支持Server Name Indicator */
-    cred.x509_server_cert = ali_ca_cert;                 /* 用来验证MQTT服务端的RSA根证书 */
-    cred.x509_server_cert_len = strlen(ali_ca_cert);     /* 用来验证MQTT服务端的RSA根证书长度 */
+    // cred.x509_server_cert = ali_ca_cert;                 /* 用来验证MQTT服务端的RSA根证书 */
+    // cred.x509_server_cert_len = strlen(ali_ca_cert);     /* 用来验证MQTT服务端的RSA根证书长度 */
     cred.x509_server_cert = new_custom_cert;            /* 使用自定义证书替代原来的证书 */
     cred.x509_server_cert_len = strlen(new_custom_cert); /* 自定义证书的长度 */
 
@@ -433,7 +443,6 @@ int main(int argc, char *argv[])
     aiot_dm_setopt(dm_handle, AIOT_DMOPT_MQTT_HANDLE, mqtt_handle);
     /* 配置消息接收处理回调函数 */
     aiot_dm_setopt(dm_handle, AIOT_DMOPT_RECV_HANDLER, (void *)demo_dm_recv_handler);
-
     /* 配置是云端否需要回复post_reply给设备. 如果为1, 表示需要云端回复, 否则表示不回复 */
     aiot_dm_setopt(dm_handle, AIOT_DMOPT_POST_REPLY, (void *)&post_reply);
 
@@ -448,10 +457,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /* 向服务器订阅property/batch/post_reply这个topic */
-    aiot_mqtt_sub(mqtt_handle, "/sys/${YourProductKey}/${YourDeviceName}/thing/event/property/batch/post_reply", NULL, 1,
-                  NULL);
-
+    // /* 向服务器订阅property/batch/post_reply这个topic */
+    // aiot_mqtt_sub(mqtt_handle, "/sys/${YourProductKey}/${YourDeviceName}/thing/event/property/batch/post_reply", NULL, 1,
+    //               NULL);
     /* 创建一个单独的线程, 专用于执行aiot_mqtt_process, 它会自动发送心跳保活, 以及重发QoS1的未应答报文 */
     g_mqtt_process_thread_running = 1;
     res = pthread_create(&g_mqtt_process_thread, NULL, demo_mqtt_process_thread, mqtt_handle);
@@ -474,20 +482,13 @@ int main(int argc, char *argv[])
 
     /* 主循环进入休眠 */
     while (1) {
-        /* TODO: 以下代码演示了简单的属性上报和事件上报, 用户可取消注释观察演示效果 */
-        demo_send_property_post(dm_handle, "{\"flow_rate\": 0, \"motor_speed\": 25.0}");
-        /*
-        demo_send_event_post(dm_handle, "Error", "{\"ErrorCode\": 0}");
-        */
+        /* TODO: 以下代码演示了简单的属性上报, 用户可取消注释观察演示效果 */
+        // demo_send_property_post(dm_handle, "{\"flow_rate\": 0, \"motor_speed\": 25.0}");
+        
+        /* TODO: 以下代码演示了简单的事件上报, 用户可取消注释观察演示效果 */
+        // demo_send_event_post(dm_handle, "Error", "{\"overpressure_alarm\": {\"injection_pressure\": 10}}");
+        
 
-        /* TODO: 以下代码演示了基于模块的物模型的上报, 用户可取消注释观察演示效果
-         * 本例需要用户在产品的功能定义的页面中, 点击"编辑草稿", 增加一个名为demo_extra_block的模块,
-         * 再到该模块中, 通过添加标准功能, 选择一个名为NightLightSwitch的物模型属性, 再点击"发布上线".
-         * 有关模块化的物模型的概念, 请见 https://help.aliyun.com/document_detail/73727.html
-        */
-        /*
-        demo_send_property_post(dm_handle, "{\"demo_extra_block:NightLightSwitch\": 1}");
-        */
 
         /* TODO: 以下代码显示批量上报用户数据, 用户可取消注释观察演示效果
          * 具体数据格式请见https://help.aliyun.com/document_detail/89301.html 的"设备批量上报属性、事件"一节

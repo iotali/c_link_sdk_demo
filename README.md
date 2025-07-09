@@ -71,13 +71,12 @@ cred.x509_server_cert_len = strlen(new_custom_cert);
 
 `data_model_basic_demo.c` 演示了物模型相关功能：
 
-```c
-/* 上报单个属性*/
-demo_send_property_post(dm_handle, "{\"temperature\": 25}");
+- 上报单个属性 demo_send_property_post(dm_handle, "{\"temperature\": 25}");
 
-/* 上报多个属性*/
-demo_send_property_post(dm_handle, "{\"humidity\": 60, \"pm25\": 12}");
-```
+- 上报多个属性 demo_send_property_post(dm_handle, "{\"humidity\": 60, \"pm25\": 12}");
+
+- 属性设置回应 demo_dm_recv_property_set
+- 服务调用回应 demo_dm_recv_async_service_invoke
 
 ### OTA 升级流程：
 
