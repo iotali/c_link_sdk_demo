@@ -23,9 +23,9 @@
 
 
 /* TODO: 替换为自己设备的三元组 */
-const char *product_key       = "${YourProductKey}";
-const char *device_name       = "${YourDeviceName}";
-const char *device_secret     = "${YourDeviceSecret}";
+const char *product_key       = "EkkpqOZe";
+const char *device_name       = "ctest001";
+const char *device_secret     = "MwJqVSXG38***";
 
 /*
     TODO: 替换为自己实例的接入点
@@ -37,7 +37,7 @@ const char *device_secret     = "${YourDeviceSecret}";
     对于2021年07月30日之前（不含当日）开通的物联网平台服务下公共实例，请使用旧版接入点。
     详情请见: https://help.aliyun.com/document_detail/147356.html
 */
-const char  *mqtt_host = "${YourInstanceId}.mqtt.iothub.aliyuncs.com";
+const char  *mqtt_host = "60.173.17.244";
 /* 
     原端口：1883/443，对应的证书(GlobalSign R1),于2028年1月过期，届时可能会导致设备不能建连。
     (推荐)新端口：8883，将搭载新证书，由阿里云物联网平台自签证书，于2053年7月过期。
@@ -49,6 +49,10 @@ extern const char *ali_ca_cert;
 void *g_ota_handle = NULL;
 void *g_dl_handle = NULL;
 uint32_t g_firmware_size = 0;
+
+
+/* 位于external/my_ca_cert.c中的自定义证书 */
+extern const char *new_custom_cert;
 
 /* 位于portfiles/aiot_port文件夹下的系统适配函数集合 */
 extern aiot_sysdep_portfile_t g_aiot_sysdep_portfile;
@@ -300,8 +304,10 @@ int main(int argc, char *argv[])
     cred.option = AIOT_SYSDEP_NETWORK_CRED_SVRCERT_CA;  /* 使用RSA证书校验MQTT服务端 */
     cred.max_tls_fragment = 16384; /* 最大的分片长度为16K, 其它可选值还有4K, 2K, 1K, 0.5K */
     cred.sni_enabled = 1;                               /* TLS建连时, 支持Server Name Indicator */
-    cred.x509_server_cert = ali_ca_cert;                 /* 用来验证MQTT服务端的RSA根证书 */
-    cred.x509_server_cert_len = strlen(ali_ca_cert);     /* 用来验证MQTT服务端的RSA根证书长度 */
+    // cred.x509_server_cert = ali_ca_cert;                 /* 用来验证MQTT服务端的RSA根证书 */
+    // cred.x509_server_cert_len = strlen(ali_ca_cert);     /* 用来验证MQTT服务端的RSA根证书长度 */
+    cred.x509_server_cert = new_custom_cert;            /* 使用自定义证书替代原来的证书 */
+    cred.x509_server_cert_len = strlen(new_custom_cert); /* 自定义证书的长度 */
 
     /* 创建1个MQTT客户端实例并内部初始化默认参数 */
     mqtt_handle = aiot_mqtt_init();
@@ -362,7 +368,6 @@ int main(int argc, char *argv[])
     if (res < STATE_SUCCESS) {
         printf("report version failed, code is -0x%04X\r\n", -res);
     }
-
     while (1) {
         aiot_mqtt_process(mqtt_handle);
         res = aiot_mqtt_recv(mqtt_handle);
@@ -458,5 +463,3 @@ exit:
 
     return 0;
 }
-
-

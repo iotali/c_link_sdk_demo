@@ -79,6 +79,22 @@ demo_send_property_post(dm_handle, "{\"temperature\": 25}");
 demo_send_property_post(dm_handle, "{\"humidity\": 60, \"pm25\": 12}");
 ```
 
+### OTA 升级流程：
+
+- **fota_basic_demo（云端推送升级）**：
+
+  - 设备启动并上报版本后，等待云端推送升级任务，收到后自动下载和处理固件包。
+  - 适合“云端主动推送”场景。
+  - 使用方法：修改三元组和 MQTT 地址，编译运行，云端下发升级任务即可体验。
+
+- **ota_query_demo（设备主动获取升级包）**：
+  - 设备启动并上报版本后，主动向云端查询是否有升级任务，有则自动下载处理。
+  - 适合“设备主动拉取”场景。
+  - 使用方法：修改三元组和 MQTT 地址，编译运行，设备会主动查询升级任务。
+  - 如需带 module 字段，可用 `aiot_ota_setopt(ota_handle, AIOT_OTAOPT_MODULE, (void *)"MCU");`
+
+> 如需自定义主动查询消息格式，可参考 `ota_query_demo.c` 注释，直接用 `aiot_mqtt_pub` 发送自定义 JSON。
+
 ## 开发注意事项
 
 1. **三元组安全**：设备三元组是设备身份凭证，请妥善保管
