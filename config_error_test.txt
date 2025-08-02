@@ -1,0 +1,7 @@
+# 测试配置文件 - 故意设置错误IP来观察_conn参数变化
+mqtt_host=192.168.1.99
+mqtt_port=1883
+product_key=QLTMkOfW
+device_name=THYYENG5wd
+device_secret=1kaFD2aghSTw4aKV
+security_mode=3

@@ -1,0 +1,16 @@
+# MQTT连接配置文件
+# 格式: key=value
+
+# MQTT服务器地址
+mqtt_host=121.40.253.224
+
+# MQTT服务器端口
+mqtt_port=1883
+
+# 设备三元组
+product_key=QLTMkOfW
+device_name=THYYENG5wd
+device_secret=1kaFD2aghSTw4aKV
+
+# 安全模式
+security_mode=3

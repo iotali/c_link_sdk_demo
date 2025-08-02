@@ -698,7 +698,7 @@ static int32_t _core_mqtt_connect(core_mqtt_handle_t *mqtt_handle)
         if (extend_clientid != NULL) {
             mqtt_handle->sysdep->core_sysdep_free(extend_clientid);
         }
-        /* core_log1(mqtt_handle->sysdep, STATE_MQTT_LOG_CLIENTID, "%s\r\n", (void *)mqtt_handle->clientid); */
+        core_log1(mqtt_handle->sysdep, STATE_MQTT_LOG_CLIENTID, "生成的Client ID: %s\r\n", (void *)mqtt_handle->clientid);
     }
     /* Get MQTT Connect Packet */
     res = _core_mqtt_conn_pkt(mqtt_handle, &conn_pkt, &conn_pkt_len);
