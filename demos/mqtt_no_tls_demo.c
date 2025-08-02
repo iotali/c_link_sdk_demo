@@ -25,6 +25,7 @@ char device_secret[128] = "1kaFD2aghSTw4aKV"; // 默认值
 char mqtt_host[256] = "121.40.253.224";   // 默认值
 uint16_t port = 1883;                     // 默认值
 char security_mode[8] = "3";              // 默认值
+uint16_t keepalive_sec = 60;              // 默认值
 
 /* 位于portfiles/aiot_port文件夹下的系统适配函数集合 */
 extern aiot_sysdep_portfile_t g_aiot_sysdep_portfile;
@@ -92,6 +93,11 @@ int load_config(const char *config_file)
         } else if (strcmp(key, "security_mode") == 0) {
             strncpy(security_mode, value, sizeof(security_mode) - 1);
             security_mode[sizeof(security_mode) - 1] = '\0';
+        } else if (strcmp(key, "keepalive_sec") == 0) {
+            keepalive_sec = (uint16_t)atoi(value);
+            // 确保keepalive在有效范围内
+            if (keepalive_sec < 30) keepalive_sec = 30;
+            if (keepalive_sec > 1200) keepalive_sec = 1200;
         }
     }
 
@@ -249,6 +255,7 @@ int main(int argc, char *argv[])
     printf("  Product Key: %s\n", product_key);
     printf("  Device Name: %s\n", device_name);
     printf("  Security Mode: %s\n", security_mode);
+    printf("  Keepalive: %d 秒\n", keepalive_sec);
     printf("===================\n");
 
     /* 配置SDK的底层依赖 */
@@ -279,6 +286,8 @@ int main(int argc, char *argv[])
     aiot_mqtt_setopt(mqtt_handle, AIOT_MQTTOPT_DEVICE_SECRET, (void *)device_secret);
     /* 配置安全模式 (从配置文件读取) */
     aiot_mqtt_setopt(mqtt_handle, AIOT_MQTTOPT_SECURITY_MODE, (void *)security_mode);
+    /* 配置MQTT心跳间隔 (从配置文件读取) */
+    aiot_mqtt_setopt(mqtt_handle, AIOT_MQTTOPT_KEEPALIVE_SEC, (void *)&keepalive_sec);
     /* 配置网络连接的安全凭据，设置为不使用TLS */
     aiot_mqtt_setopt(mqtt_handle, AIOT_MQTTOPT_NETWORK_CRED, (void *)&cred);
     /* 配置MQTT默认消息接收回调函数 */

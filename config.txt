@@ -14,3 +14,6 @@ device_secret=1kaFD2aghSTw4aKV
 
 # 安全模式
 security_mode=3
+
+# MQTT心跳间隔（秒），取值范围：30-1200
+keepalive_sec=60
